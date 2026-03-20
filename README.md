@@ -64,6 +64,17 @@ Your App → OpenAI API format → cursor-proxy (HTTP) → cursor-h2-bridge (HTT
 - **cursor-h2-bridge.mjs** — Node.js HTTP/2 child process for gRPC transport
 - **proto/agent_pb.ts** — Auto-generated protobuf definitions
 
+## Credits
+
+This project is based on [opencode-cursor](https://github.com/ephraimduncan/opencode-cursor) by [Ephraim Duncan](https://github.com/ephraimduncan). The original project implements a Cursor API plugin for [OpenCode](https://github.com/nicepkg/opencode) using Bun. This repo ports the core functionality to Node.js as a standalone package.
+
+Key components adapted from opencode-cursor:
+- OAuth PKCE authentication flow
+- gRPC/Connect protocol translation (OpenAI ↔ Cursor)
+- HTTP/2 bridge for Cursor's streaming API
+- Protobuf definitions for Cursor's agent service
+- MCP tool call handling and native tool rejection
+
 ## License
 
 MIT
