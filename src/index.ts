@@ -21,3 +21,12 @@ export {
 	type CursorCredentials,
 } from "./cursor-auth.js";
 export { getCursorModels, fetchCursorUsableModels, type CursorModel } from "./cursor-models.js";
+export {
+	resetCursorSession,
+	streamCursorTurn,
+	type CursorNativeMessage,
+	type CursorNativeToolCall,
+	type CursorNativeToolDef,
+	type CursorNativeTurnOptions,
+	type CursorNativeTurnResult,
+} from "./cursor-native.js";

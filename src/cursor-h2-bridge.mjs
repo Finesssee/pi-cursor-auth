@@ -19,6 +19,7 @@ import http2 from "node:http2";
 import crypto from "node:crypto";
 
 const CURSOR_CLIENT_VERSION = "cli-2026.01.09-231024f";
+const IDLE_TIMEOUT_MS = Number(process.env.CURSOR_BRIDGE_IDLE_TIMEOUT_MS || "120000");
 
 /** Write one length-prefixed message to stdout. */
 function writeMessage(data) {
@@ -84,14 +85,22 @@ const { accessToken, url, path: rpcPath } = config;
 
 const client = http2.connect(url || "https://api2.cursor.sh");
 
-const timeout = setTimeout(() => {
-  client.destroy();
-  process.exit(1);
-}, 120_000);
+let timeout = null;
 
-client.on("error", () => {
-  clearTimeout(timeout);
-  process.exit(1);
+function resetIdleTimeout() {
+  if (timeout) clearTimeout(timeout);
+  timeout = setTimeout(() => {
+    h2Stream.close();
+    client.destroy();
+    process.exit(1);
+  }, IDLE_TIMEOUT_MS);
+  timeout.unref?.();
+}
+
+resetIdleTimeout();
+
+client.on("connect", () => {
+  resetIdleTimeout();
 });
 
 const h2Stream = client.request({
@@ -107,22 +116,32 @@ const h2Stream = client.request({
   "x-request-id": crypto.randomUUID(),
 });
 
+const closeWithError = () => {
+  if (timeout) clearTimeout(timeout);
+  h2Stream.close();
+  client.destroy();
+  process.exit(1);
+};
+
+client.on("error", () => {
+  closeWithError();
+});
+
 // Forward H2 response data → stdout (length-prefixed)
 h2Stream.on("data", (chunk) => {
+  resetIdleTimeout();
   writeMessage(chunk);
 });
 
 h2Stream.on("end", () => {
-  clearTimeout(timeout);
+  if (timeout) clearTimeout(timeout);
   client.close();
   // Give stdout time to flush
   setTimeout(() => process.exit(0), 100);
 });
 
 h2Stream.on("error", () => {
-  clearTimeout(timeout);
-  client.close();
-  process.exit(1);
+  closeWithError();
 });
 
 // Forward stdin → H2 stream (after config message)
@@ -134,6 +153,7 @@ h2Stream.on("error", () => {
       break;
     }
     if (!h2Stream.closed && !h2Stream.destroyed) {
+      resetIdleTimeout();
       h2Stream.write(msg);
     }
   }
