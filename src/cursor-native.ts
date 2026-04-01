@@ -150,6 +150,11 @@ interface CursorSessionState {
 const ACTIVE_BRIDGES = new Map<string, ActiveBridge>();
 const SESSION_STATE = new Map<string, CursorSessionState>();
 
+function normalizeToolCallId(value: string): string {
+	const normalized = `${value || ""}`.replace(/\s+/g, "");
+	return normalized || `call_${randomUUID().replaceAll("-", "")}`;
+}
+
 function lpEncode(data: Uint8Array): Buffer {
 	const buf = Buffer.alloc(4 + data.length);
 	buf.writeUInt32BE(data.length, 0);
@@ -527,11 +532,26 @@ function handleExecMessage(
 	if (execCase === "mcpArgs") {
 		const mcpArgs = execMessage.message.value;
 		const decoded = decodeMcpArgsMap(mcpArgs.args ?? {});
+		const toolName = `${mcpArgs.toolName || mcpArgs.name || ""}`.trim();
+		if (!toolName) {
+			sendExecResult(
+				execMessage,
+				"mcpResult",
+				create(McpResultSchema, {
+					result: {
+						case: "error",
+						value: create(McpErrorSchema, { error: "Missing MCP tool name" }),
+					},
+				}),
+				sendFrame,
+			);
+			return;
+		}
 		onMcpExec({
 			execId: execMessage.execId,
 			execMsgId: execMessage.id,
-			toolCallId: mcpArgs.toolCallId || randomUUID(),
-			toolName: mcpArgs.toolName || mcpArgs.name,
+			toolCallId: normalizeToolCallId(mcpArgs.toolCallId || ""),
+			toolName,
 			decodedArgs: JSON.stringify(decoded),
 		});
 		return;
