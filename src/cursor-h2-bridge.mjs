@@ -153,7 +153,6 @@ h2Stream.on("error", () => {
       break;
     }
     if (!h2Stream.closed && !h2Stream.destroyed) {
-      resetIdleTimeout();
       h2Stream.write(msg);
     }
   }
